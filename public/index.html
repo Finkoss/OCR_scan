@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Čtečka měřičů</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Čtečka měřičů</h1>
+    <p class="subtitle">Nahraje fotku měřiče a automaticky přečte hodnotu (elektroměr, plynoměr, vodoměr, …)</p>
+
+    <div class="upload-area" id="uploadArea">
+      <label for="fileInput" class="upload-label">
+        <span class="upload-icon">📷</span>
+        <span class="upload-text">Vyberte nebo vyfoťte měřič</span>
+        <span class="upload-hint">JPG, PNG, WEBP — max 10 MB</span>
+      </label>
+      <input type="file" id="fileInput" accept="image/*" capture="environment">
+    </div>
+
+    <div id="previewWrap" class="hidden">
+      <img id="preview" alt="Náhled měřiče">
+    </div>
+
+    <button id="readBtn" class="btn btn-primary hidden" disabled>
+      <span class="btn-text">Přečíst měřič</span>
+      <span class="spinner hidden" id="spinner"></span>
+    </button>
+
+    <div id="resultWrap" class="hidden">
+      <div class="result-box">
+        <div class="result-label">Odečtená hodnota</div>
+        <div class="result-value" id="resultValue">—</div>
+        <div class="result-raw" id="resultRaw"></div>
+      </div>
+      <button id="saveBtn" class="btn btn-secondary">Uložit odečet</button>
+      <div id="saveStatus" class="save-status hidden"></div>
+    </div>
+
+    <div id="errorWrap" class="hidden">
+      <div class="error-box" id="errorMsg"></div>
+    </div>
+
+    <div id="historyWrap" class="hidden">
+      <h2>Historie odečtů</h2>
+      <table id="historyTable">
+        <thead>
+          <tr><th>Datum a čas</th><th>Hodnota</th></tr>
+        </thead>
+        <tbody id="historyBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
