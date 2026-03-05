@@ -109,8 +109,8 @@ async function callGPT4oVision(base64Image, mimeType) {
   return { value: parsed.value, unit: parsed.unit || '', raw };
 }
 
-// POST /api/save — save reading to readings.json
-app.post('/api/save', (req, res) => {
+// POST /api/save — save reading to readings.json and forward to Power Automate
+app.post('/api/save', async (req, res) => {
   const { value, unit } = req.body;
 
   if (value === undefined || value === null) {
@@ -122,7 +122,23 @@ app.post('/api/save', (req, res) => {
   readings.push(entry);
   saveReadings(readings);
 
-  res.json({ ok: true, entry });
+  let paOk = null;
+  if (process.env.POWER_AUTOMATE_URL) {
+    try {
+      const paRes = await fetch(process.env.POWER_AUTOMATE_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value: entry.value, unit: entry.unit, timestamp: entry.timestamp.slice(0, 10) }),
+      });
+      paOk = paRes.ok;
+      if (!paRes.ok) console.error('Power Automate HTTP error:', paRes.status);
+    } catch (err) {
+      console.error('Power Automate error:', err);
+      paOk = false;
+    }
+  }
+
+  res.json({ ok: true, entry, paOk });
 });
 
 // GET /api/readings — return saved readings (newest first)
@@ -144,6 +160,10 @@ function saveReadings(readings) {
   fs.writeFileSync(READINGS_FILE, JSON.stringify(readings, null, 2), 'utf8');
 }
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
+  const { networkInterfaces } = require('os');
+  const nets = networkInterfaces();
+  const ips = Object.values(nets).flat().filter(n => n.family === 'IPv4' && !n.internal);
   console.log(`Čtečka měřičů běží na http://localhost:${PORT}`);
+  ips.forEach(n => console.log(`  → v síti: http://${n.address}:${PORT}`));
 });

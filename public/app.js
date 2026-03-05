@@ -12,8 +12,6 @@ const errorWrap   = document.getElementById('errorWrap');
 const errorMsg    = document.getElementById('errorMsg');
 const saveBtn     = document.getElementById('saveBtn');
 const saveStatus  = document.getElementById('saveStatus');
-const historyWrap = document.getElementById('historyWrap');
-const historyBody = document.getElementById('historyBody');
 
 let currentReading = null; // { value, unit }
 
@@ -101,10 +99,17 @@ saveBtn.addEventListener('click', async () => {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Chyba při ukládání.');
 
-    saveStatus.textContent = 'Odečet byl uložen.';
-    saveStatus.className = 'save-status';
+    if (data.paOk === true) {
+      saveStatus.textContent = '✓ Odečet byl úspěšně odeslán do Power Automate.';
+      saveStatus.className = 'save-status';
+    } else if (data.paOk === false) {
+      saveStatus.textContent = '⚠ Odečet uložen lokálně, ale Power Automate hlásí chybu.';
+      saveStatus.className = 'save-status error';
+    } else {
+      saveStatus.textContent = '✓ Odečet byl uložen.';
+      saveStatus.className = 'save-status';
+    }
     saveStatus.classList.remove('hidden');
-    loadHistory();
   } catch (err) {
     saveStatus.textContent = 'Chyba: ' + err.message;
     saveStatus.className = 'save-status error';
@@ -114,30 +119,6 @@ saveBtn.addEventListener('click', async () => {
   }
 });
 
-// ---- History ----
-
-async function loadHistory() {
-  try {
-    const res = await fetch('/api/readings');
-    const readings = await res.json();
-
-    if (!Array.isArray(readings) || readings.length === 0) {
-      historyWrap.classList.add('hidden');
-      return;
-    }
-
-    historyBody.innerHTML = readings.map((r) => {
-      const date = new Date(r.timestamp).toLocaleString('cs-CZ');
-      const val = r.value !== undefined ? r.value : r.kwh; // backwards compat
-      const unit = r.unit || 'kWh';
-      return `<tr><td>${date}</td><td>${Number(val).toLocaleString('cs-CZ')} ${unit}</td></tr>`;
-    }).join('');
-
-    historyWrap.classList.remove('hidden');
-  } catch {
-    // silently ignore history errors
-  }
-}
 
 // ---- Image compression ----
 
@@ -213,5 +194,3 @@ function hideError() {
   errorWrap.classList.add('hidden');
 }
 
-// Load history on page start
-loadHistory();
