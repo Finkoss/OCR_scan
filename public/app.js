@@ -11,10 +11,16 @@ const resultValue = document.getElementById('resultValue');
 const resultRaw   = document.getElementById('resultRaw');
 const errorWrap   = document.getElementById('errorWrap');
 const errorMsg    = document.getElementById('errorMsg');
-const saveBtn     = document.getElementById('saveBtn');
+const addToListBtn = document.getElementById('addToListBtn');
 const saveStatus  = document.getElementById('saveStatus');
+const batchWrap   = document.getElementById('batchWrap');
+const batchBody   = document.getElementById('batchBody');
+const sendAllBtn  = document.getElementById('sendAllBtn');
+const batchStatus = document.getElementById('batchStatus');
 
-let currentReading = null; // { value, unit }
+let currentReading = null; // { value, type }
+let currentFile    = null; // most recently selected file
+let batchReadings  = [];   // [{ value, type, timestamp }]
 
 // ---- File selection ----
 
@@ -44,20 +50,21 @@ uploadArea.addEventListener('drop', (e) => {
 });
 
 function loadFile(file) {
+  hideResult();
+  hideError();
+  currentFile = file;
   const url = URL.createObjectURL(file);
   preview.src = url;
   previewWrap.classList.remove('hidden');
   readBtn.classList.remove('hidden');
   readBtn.disabled = false;
-  hideResult();
-  hideError();
   currentReading = null;
 }
 
 // ---- Read meter ----
 
 readBtn.addEventListener('click', async () => {
-  const file = fileCamera.files[0] || fileGallery.files[0];
+  const file = currentFile;
   if (!file) return;
 
   setLoading(true);
@@ -81,8 +88,8 @@ readBtn.addEventListener('click', async () => {
       return;
     }
 
-    currentReading = { value: data.value, unit: data.unit };
-    showResult(data.value, data.unit, data.raw);
+    currentReading = { value: data.value, type: data.type };
+    showResult(data.value, data.type, data.raw);
   } catch (err) {
     showError('Nelze se připojit k serveru: ' + err.message);
   } finally {
@@ -90,39 +97,95 @@ readBtn.addEventListener('click', async () => {
   }
 });
 
-// ---- Save reading ----
+// ---- Add to batch list ----
 
-saveBtn.addEventListener('click', async () => {
+addToListBtn.addEventListener('click', () => {
   if (!currentReading) return;
-  saveBtn.disabled = true;
+
+  batchReadings.push({
+    value: currentReading.value,
+    type: currentReading.type,
+    timestamp: new Date().toISOString(),
+  });
+
+  renderBatchTable();
+
+  saveStatus.textContent = '✓ Přidáno do seznamu';
+  saveStatus.className = 'save-status';
+  saveStatus.classList.remove('hidden');
+
+  setTimeout(() => {
+    hideResult();
+    saveStatus.classList.add('hidden');
+  }, 1200);
+});
+
+// ---- Render batch table ----
+
+function renderBatchTable() {
+  batchBody.innerHTML = '';
+
+  batchReadings.forEach((r, i) => {
+    const tr = document.createElement('tr');
+    const time = new Date(r.timestamp).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' });
+    tr.innerHTML = `
+      <td>${r.type || '—'}</td>
+      <td>${Number(r.value).toLocaleString('cs-CZ')}</td>
+      <td>${time}</td>
+      <td><button class="btn-remove" data-index="${i}" title="Odebrat">✕</button></td>
+    `;
+    batchBody.appendChild(tr);
+  });
+
+  batchWrap.classList.toggle('hidden', batchReadings.length === 0);
+}
+
+// Remove row via event delegation
+batchBody.addEventListener('click', (e) => {
+  const btn = e.target.closest('.btn-remove');
+  if (!btn) return;
+  const idx = Number(btn.dataset.index);
+  batchReadings.splice(idx, 1);
+  renderBatchTable();
+});
+
+// ---- Send all ----
+
+sendAllBtn.addEventListener('click', async () => {
+  if (batchReadings.length === 0) return;
+  sendAllBtn.disabled = true;
+  batchStatus.classList.add('hidden');
 
   try {
-    const res = await fetch('/api/save', {
+    const res = await fetch('/api/save-all', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ value: currentReading.value, unit: currentReading.unit }),
+      body: JSON.stringify({ readings: batchReadings }),
     });
 
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Chyba při ukládání.');
+    if (!res.ok) throw new Error(data.error || 'Chyba při odesílání.');
 
     if (data.paOk === true) {
-      saveStatus.textContent = '✓ Odečet byl úspěšně odeslán do Power Automate.';
-      saveStatus.className = 'save-status';
+      batchStatus.textContent = `✓ ${data.count} odečtů úspěšně odesláno do Power Automate.`;
+      batchStatus.className = 'save-status';
     } else if (data.paOk === false) {
-      saveStatus.textContent = '⚠ Odečet uložen lokálně, ale Power Automate hlásí chybu.';
-      saveStatus.className = 'save-status error';
+      batchStatus.textContent = `⚠ ${data.count} odečtů uloženo lokálně, ale Power Automate hlásí chybu.`;
+      batchStatus.className = 'save-status error';
     } else {
-      saveStatus.textContent = '✓ Odečet byl uložen.';
-      saveStatus.className = 'save-status';
+      batchStatus.textContent = `✓ ${data.count} odečtů uloženo.`;
+      batchStatus.className = 'save-status';
     }
-    saveStatus.classList.remove('hidden');
+    batchStatus.classList.remove('hidden');
+
+    batchReadings = [];
+    renderBatchTable();
   } catch (err) {
-    saveStatus.textContent = 'Chyba: ' + err.message;
-    saveStatus.className = 'save-status error';
-    saveStatus.classList.remove('hidden');
+    batchStatus.textContent = 'Chyba: ' + err.message;
+    batchStatus.className = 'save-status error';
+    batchStatus.classList.remove('hidden');
   } finally {
-    saveBtn.disabled = false;
+    sendAllBtn.disabled = false;
   }
 });
 
@@ -178,18 +241,23 @@ function setLoading(loading) {
   spinner.classList.toggle('hidden', !loading);
 }
 
-function showResult(value, unit, raw) {
-  const display = unit ? `${Number(value).toLocaleString('cs-CZ')} ${unit}` : Number(value).toLocaleString('cs-CZ');
+function showResult(value, type, raw) {
+  const display = Number(value).toLocaleString('cs-CZ');
   resultValue.textContent = display;
   resultRaw.textContent = raw ? `Odpověď API: ${raw}` : '';
   saveStatus.classList.add('hidden');
-  saveBtn.disabled = false;
+  addToListBtn.disabled = false;
   resultWrap.classList.remove('hidden');
 }
 
 function hideResult() {
   resultWrap.classList.add('hidden');
   currentReading = null;
+  currentFile = null;
+  fileCamera.value = '';
+  fileGallery.value = '';
+  readBtn.classList.add('hidden');
+  readBtn.disabled = true;
 }
 
 function showError(msg) {
@@ -200,4 +268,3 @@ function showError(msg) {
 function hideError() {
   errorWrap.classList.add('hidden');
 }
-

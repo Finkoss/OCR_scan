@@ -43,22 +43,22 @@ async function callGPT4oVision(base64Image, mimeType) {
     'This is a meter or measurement display (electricity, gas, water, weather station, or similar). ' +
     'Extract the PRIMARY main reading value and identify the meter type. ' +
     'Rules:\n' +
-    '- Electricity meter: look for OBIS code label near the value:\n' +
+    '- Electricity meter: look for kWh value:\n' +
     '  - If labeled 1.8.0 → type = "elektroměr - spotřeba"\n' +
     '  - If labeled 2.8.0 → type = "elektroměr - výroba"\n' +
-    '  - If no OBIS code visible → type = "elektroměr"\n' +
-    '  Use the numeric value next to the relevant OBIS code (largest number on LCD if no OBIS visible).\n' +
-    '- Gas meter: total consumption (include decimal digits if shown), type = "plynoměr"\n' +
-    '- Water meter: total consumption (include decimal digits if shown), type = "vodoměr"\n' +
+    '- Gas meter (Apator): total consumption, type = "plynoměr". The last digits shown in red or after a separator are decimal digits — treat them as decimal part, e.g. black "01736" + red "90" = 1736.90\n' +
+    '- Water meter(Itron): total consumption, type = "vodoměr". The last digits shown in red or after a separator are decimal digits — treat them as decimal part, e.g. black "01736" + red "90" = 1736.90\n' +
     '- Weather station / thermometer: Extract ONLY the numeric temperature (°C) from the outdoor/OUT section (top of display).\n' +
     '  The IN label marks the INDOOR section — any temperature on the same row as or below the IN label is indoor. STRICTLY IGNORE it.\n' +
+    '  Read ALL digits AND decimal separators (. or ,) that appear BEFORE the °C symbol — that is the full temperature value. STOP at °C.\n' +
+    '  Any digits that appear AFTER the °C symbol are humidity (%) — completely ignore them.\n' +
+    '  Example: "1.1°C05%" → temperature is 1.1. "1°C05%" → temperature is 1. NEVER combine digits across the °C boundary.\n' +
     '  Ignore humidity (%), pressure (hPa/mBar), time values, and any other non-temperature numbers.\n' +
-    '  Return a decimal number, e.g. 0.9 or -3.5.\n' +
-    '  Then look for MIN or MAX label on the display near the outdoor temperature:\n' +
-    '  - If MIN is visible → type = "meteostanice - min"\n' +
-    '  - If MAX is visible → type = "meteostanice - max"\n' +
-    '  - If both MIN and MAX are visible → prefer MIN\n' +
-    '  - If neither is visible → type = "meteostanice"\n' +
+    '  Return only the temperature as a number, e.g. 1 or -3.5.\n' +
+    '  IMPORTANT: Scan the ENTIRE display for the text "MIN" or "MAX" (can appear anywhere — above, below, or next to values).\n' +
+    '  - If the text "MAX" appears ANYWHERE on the display → type MUST be "meteostanice - max"\n' +
+    '  - If the text "MIN" appears ANYWHERE on the display → type MUST be "meteostanice - min"\n' +
+    '  - ONLY if neither "MIN" nor "MAX" text is visible anywhere → type = "meteostanice"\n' +
     '- Other: the most prominent numeric value, type = "jiné"\n' +
     'Return ONLY a JSON object: {"value": 93.722, "type": "vodoměr"}. ' +
     'No explanation, no markdown, no code block.';
@@ -119,19 +119,19 @@ async function callGPT4oVision(base64Image, mimeType) {
     throw new Error(`Odpověď neobsahuje pole value: "${raw}"`);
   }
 
-  return { value: parsed.value, unit: parsed.unit || '', raw };
+  return { value: parsed.value, type: parsed.type || '', raw };
 }
 
 // POST /api/save — save reading to readings.json and forward to Power Automate
 app.post('/api/save', async (req, res) => {
-  const { value, unit } = req.body;
+  const { value, type } = req.body;
 
   if (value === undefined || value === null) {
     return res.status(400).json({ error: 'Chybí hodnota value.' });
   }
 
   const readings = loadReadings();
-  const entry = { value: Number(value), unit: unit || '', timestamp: new Date().toISOString() };
+  const entry = { value: Number(value), type: type || '', timestamp: new Date().toISOString() };
   readings.push(entry);
   saveReadings(readings);
 
@@ -141,7 +141,7 @@ app.post('/api/save', async (req, res) => {
       const paRes = await fetch(process.env.POWER_AUTOMATE_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value: entry.value, unit: entry.unit, timestamp: entry.timestamp.slice(0, 10) }),
+        body: JSON.stringify({ value: entry.value, type: entry.type, timestamp: entry.timestamp.slice(0, 10) }),
       });
       paOk = paRes.ok;
       if (!paRes.ok) console.error('Power Automate HTTP error:', paRes.status);
@@ -152,6 +152,42 @@ app.post('/api/save', async (req, res) => {
   }
 
   res.json({ ok: true, entry, paOk });
+});
+
+// POST /api/save-all — save multiple readings and forward to Power Automate as array
+app.post('/api/save-all', async (req, res) => {
+  const { readings: incoming } = req.body;
+
+  if (!Array.isArray(incoming) || incoming.length === 0) {
+    return res.status(400).json({ error: 'Chybí pole readings (musí být neprázdné pole).' });
+  }
+
+  const readings = loadReadings();
+  const entries = incoming.map(r => ({
+    value: Number(r.value),
+    type: r.type || '',
+    timestamp: r.timestamp || new Date().toISOString(),
+  }));
+  entries.forEach(e => readings.push(e));
+  saveReadings(readings);
+
+  let paOk = null;
+  if (process.env.POWER_AUTOMATE_URL) {
+    try {
+      const paRes = await fetch(process.env.POWER_AUTOMATE_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(entries),
+      });
+      paOk = paRes.ok;
+      if (!paRes.ok) console.error('Power Automate HTTP error:', paRes.status);
+    } catch (err) {
+      console.error('Power Automate error:', err);
+      paOk = false;
+    }
+  }
+
+  res.json({ ok: true, count: entries.length, paOk });
 });
 
 // GET /api/readings — return saved readings (newest first)
@@ -170,6 +206,7 @@ function loadReadings() {
 }
 
 function saveReadings(readings) {
+  fs.mkdirSync(path.dirname(READINGS_FILE), { recursive: true });
   fs.writeFileSync(READINGS_FILE, JSON.stringify(readings, null, 2), 'utf8');
 }
 

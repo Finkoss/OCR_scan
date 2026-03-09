@@ -42,7 +42,7 @@
         <div class="result-value" id="resultValue">—</div>
         <div class="result-raw" id="resultRaw"></div>
       </div>
-      <button id="saveBtn" class="btn btn-secondary">Odeslat odečet</button>
+      <button id="addToListBtn" class="btn btn-secondary">Přidat do seznamu</button>
       <div id="saveStatus" class="save-status hidden"></div>
     </div>
 
@@ -50,6 +50,17 @@
       <div class="error-box" id="errorMsg"></div>
     </div>
 
+    <div id="batchWrap" class="hidden">
+      <h2 class="batch-title">Seznam odečtů</h2>
+      <table id="batchTable">
+        <thead>
+          <tr><th>Typ</th><th>Hodnota</th><th>Čas</th><th></th></tr>
+        </thead>
+        <tbody id="batchBody"></tbody>
+      </table>
+      <button id="sendAllBtn" class="btn btn-green">Odeslat vše</button>
+      <div id="batchStatus" class="save-status hidden"></div>
+    </div>
 
   </div>
 
