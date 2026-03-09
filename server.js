@@ -51,13 +51,13 @@ async function callGPT4oVision(base64Image, mimeType) {
     '- Gas meter: total consumption (include decimal digits if shown), type = "plynoměr"\n' +
     '- Water meter: total consumption (include decimal digits if shown), type = "vodoměr"\n' +
     '- Weather station / thermometer: ALWAYS use the OUT (outdoor) temperature, never the IN (indoor) value.\n' +
-    '  Then look for MIN or MAX label near the OUT value:\n' +
-    '  - If labeled MIN → type = "teploměr - minimum"\n' +
-    '  - If labeled MAX → type = "teploměr - maximum"\n' +
-    '  - If no MIN/MAX label → type = "meteostanice"\n' +
+    '  Then look for MIN or MAX label anywhere on the display:\n' +
+    '  - If MIN is visible anywhere on the display → type = "meteostanice - min"\n' +
+    '  - If MAX is visible anywhere on the display → type = "meteostanice - max"\n' +
+    '  - If neither MIN nor MAX is visible → type = "meteostanice"\n' +
     '- Other: the most prominent numeric value, type = "jiné"\n' +
     'Return ONLY a JSON object: {"value": 93.722, "type": "vodoměr"}. ' +
-    'Do NOT include unit or any other field. No explanation, no markdown, no code block.';
+    'No explanation, no markdown, no code block.';
 
   const payload = {
     model: 'gpt-4o-mini',
