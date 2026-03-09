@@ -50,11 +50,15 @@ async function callGPT4oVision(base64Image, mimeType) {
     '  Use the numeric value next to the relevant OBIS code (largest number on LCD if no OBIS visible).\n' +
     '- Gas meter: total consumption (include decimal digits if shown), type = "plynoměr"\n' +
     '- Water meter: total consumption (include decimal digits if shown), type = "vodoměr"\n' +
-    '- Weather station / thermometer: ALWAYS use the OUT (outdoor) temperature, never the IN (indoor) value.\n' +
-    '  Then look for MIN or MAX label anywhere on the display:\n' +
-    '  - If MIN is visible anywhere on the display → type = "meteostanice - min"\n' +
-    '  - If MAX is visible anywhere on the display → type = "meteostanice - max"\n' +
-    '  - If neither MIN nor MAX is visible → type = "meteostanice"\n' +
+    '- Weather station / thermometer: Extract ONLY the numeric temperature (°C) from the outdoor/OUT section (top of display).\n' +
+    '  The IN label marks the INDOOR section — any temperature on the same row as or below the IN label is indoor. STRICTLY IGNORE it.\n' +
+    '  Ignore humidity (%), pressure (hPa/mBar), time values, and any other non-temperature numbers.\n' +
+    '  Return a decimal number, e.g. 0.9 or -3.5.\n' +
+    '  Then look for MIN or MAX label on the display near the outdoor temperature:\n' +
+    '  - If MIN is visible → type = "meteostanice - min"\n' +
+    '  - If MAX is visible → type = "meteostanice - max"\n' +
+    '  - If both MIN and MAX are visible → prefer MIN\n' +
+    '  - If neither is visible → type = "meteostanice"\n' +
     '- Other: the most prominent numeric value, type = "jiné"\n' +
     'Return ONLY a JSON object: {"value": 93.722, "type": "vodoměr"}. ' +
     'No explanation, no markdown, no code block.';
