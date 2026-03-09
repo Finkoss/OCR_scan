@@ -12,12 +12,19 @@
     <p class="subtitle">Nahraje fotku měřiče a automaticky přečte hodnotu (elektroměr, plynoměr, vodoměr, …)</p>
 
     <div class="upload-area" id="uploadArea">
-      <label for="fileInput" class="upload-label">
-        <span class="upload-icon">📷</span>
-        <span class="upload-text">Vyberte nebo vyfoťte měřič</span>
-        <span class="upload-hint">JPG, PNG, WEBP — max 10 MB</span>
-      </label>
-      <input type="file" id="fileInput" accept="image/*">
+      <div class="upload-buttons">
+        <label for="fileCamera" class="upload-label">
+          <span class="upload-icon">📷</span>
+          <span class="upload-text">Vyfotit</span>
+        </label>
+        <input type="file" id="fileCamera" accept="image/*" capture="environment">
+        <label for="fileGallery" class="upload-label">
+          <span class="upload-icon">🖼️</span>
+          <span class="upload-text">Galerie</span>
+        </label>
+        <input type="file" id="fileGallery" accept="image/*">
+      </div>
+      <span class="upload-hint">JPG, PNG, WEBP — max 10 MB</span>
     </div>
 
     <div id="previewWrap" class="hidden">

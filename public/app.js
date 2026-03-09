@@ -1,4 +1,5 @@
-const fileInput   = document.getElementById('fileInput');
+const fileCamera  = document.getElementById('fileCamera');
+const fileGallery = document.getElementById('fileGallery');
 const uploadArea  = document.getElementById('uploadArea');
 const previewWrap = document.getElementById('previewWrap');
 const preview     = document.getElementById('preview');
@@ -17,8 +18,14 @@ let currentReading = null; // { value, unit }
 
 // ---- File selection ----
 
-fileInput.addEventListener('change', () => {
-  const file = fileInput.files[0];
+fileCamera.addEventListener('change', () => {
+  const file = fileCamera.files[0];
+  if (!file) return;
+  loadFile(file);
+});
+
+fileGallery.addEventListener('change', () => {
+  const file = fileGallery.files[0];
   if (!file) return;
   loadFile(file);
 });
@@ -50,7 +57,7 @@ function loadFile(file) {
 // ---- Read meter ----
 
 readBtn.addEventListener('click', async () => {
-  const file = fileInput.files[0];
+  const file = fileCamera.files[0] || fileGallery.files[0];
   if (!file) return;
 
   setLoading(true);

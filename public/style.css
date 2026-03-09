@@ -46,13 +46,19 @@ h1 {
   background: #eff6ff;
 }
 
+.upload-buttons {
+  display: flex;
+  justify-content: center;
+}
+
 .upload-label {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  padding: 36px 20px;
+  padding: 28px 32px;
   cursor: pointer;
+  flex: 1;
 }
 
 .upload-icon {
@@ -68,9 +74,13 @@ h1 {
 .upload-hint {
   font-size: 0.8rem;
   color: #999;
+  display: block;
+  text-align: center;
+  padding-bottom: 12px;
 }
 
-#fileInput {
+#fileCamera,
+#fileGallery {
   display: none;
 }
 
