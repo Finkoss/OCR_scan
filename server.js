@@ -50,7 +50,11 @@ async function callGPT4oVision(base64Image, mimeType) {
     '  Use the numeric value next to the relevant OBIS code (largest number on LCD if no OBIS visible).\n' +
     '- Gas meter: total consumption (include decimal digits if shown), type = "plynoměr"\n' +
     '- Water meter: total consumption (include decimal digits if shown), type = "vodoměr"\n' +
-    '- Weather station: the indoor temperature (largest temperature value), type = "meteostanice"\n' +
+    '- Weather station / thermometer: ALWAYS use the OUT (outdoor) temperature, never the IN (indoor) value.\n' +
+    '  Then look for MIN or MAX label near the OUT value:\n' +
+    '  - If labeled MIN → type = "teploměr - minimum"\n' +
+    '  - If labeled MAX → type = "teploměr - maximum"\n' +
+    '  - If no MIN/MAX label → type = "meteostanice"\n' +
     '- Other: the most prominent numeric value, type = "jiné"\n' +
     'Return ONLY a JSON object: {"value": 93.722, "type": "vodoměr"}. ' +
     'Do NOT include unit or any other field. No explanation, no markdown, no code block.';
