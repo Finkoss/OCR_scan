@@ -41,14 +41,19 @@ app.post('/api/read', readLimiter, async (req, res) => {
 async function callGPT4oVision(base64Image, mimeType) {
   const primaryPrompt =
     'This is a meter or measurement display (electricity, gas, water, weather station, or similar). ' +
-    'Identify the type and extract the PRIMARY main reading value shown on the display. ' +
+    'Extract the PRIMARY main reading value and identify the meter type. ' +
     'Rules:\n' +
-    '- Electricity meter: total consumption in kWh (the largest number on the LCD)\n' +
-    '- Gas/water meter: total consumption in m³ (include decimal digits if shown, e.g. 93.722)\n' +
-    '- Weather station: the indoor temperature in °C (largest temperature value)\n' +
-    '- Other: the most prominent numeric value and its unit\n' +
-    'Return ONLY a JSON object: {"value": 93.722, "unit": "m³"}. ' +
-    'No explanation, no markdown, no code block.';
+    '- Electricity meter: look for OBIS code label near the value:\n' +
+    '  - If labeled 1.8.0 → type = "elektroměr - spotřeba"\n' +
+    '  - If labeled 2.8.0 → type = "elektroměr - výroba"\n' +
+    '  - If no OBIS code visible → type = "elektroměr"\n' +
+    '  Use the numeric value next to the relevant OBIS code (largest number on LCD if no OBIS visible).\n' +
+    '- Gas meter: total consumption (include decimal digits if shown), type = "plynoměr"\n' +
+    '- Water meter: total consumption (include decimal digits if shown), type = "vodoměr"\n' +
+    '- Weather station: the indoor temperature (largest temperature value), type = "meteostanice"\n' +
+    '- Other: the most prominent numeric value, type = "jiné"\n' +
+    'Return ONLY a JSON object: {"value": 93.722, "type": "vodoměr"}. ' +
+    'Do NOT include unit or any other field. No explanation, no markdown, no code block.';
 
   const payload = {
     model: 'gpt-4o-mini',
